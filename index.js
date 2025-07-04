@@ -7,12 +7,12 @@ const app = express();
 
 // ✅ Dynamic CORS config
 const allowedOrigins = [
-  process.env.CLIENT_URL || "http://localhost:3000"
+  process.env.CLIENT_URL || "http://localhost:3000",
+  "https://razorpayintegration-front.onrender.com"
 ];
 
 app.use(cors({
   origin: function (origin, callback) {
-    // allow requests with no origin (like mobile apps, curl, Postman)
     if (!origin || allowedOrigins.includes(origin)) {
       callback(null, true);
     } else {
