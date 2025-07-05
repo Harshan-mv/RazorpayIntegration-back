@@ -7,7 +7,7 @@ if (!JWT_SECRET) throw new Error("Missing JWT_SECRET in environment");
 
 // Register
 exports.register = async (req, res) => {
-  const { name, email, password, role = "user" } = req.body;
+  const { name, email, password, role } = req.body;
 
   if (!name || !email || !password) {
     return res.status(400).json({ message: "All fields are required" });
@@ -19,12 +19,24 @@ exports.register = async (req, res) => {
       return res.status(400).json({ message: "Email already exists" });
     }
 
+    // Only allow admin creation if no users exist yet, or if the request is made by an admin
+    let finalRole = 'user';
+    const userCount = await User.countDocuments();
+    if (role === 'admin') {
+      if (userCount === 0) {
+        finalRole = 'admin'; // First user can be admin
+      } else if (req.user && req.user.role === 'admin') {
+        finalRole = 'admin';
+      } // else ignore admin request
+    }
+
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = new User({
       name,
       email,
       password: hashedPassword,
-      role
+      role: finalRole,
+      addresses: []
     });
 
     await newUser.save();
@@ -40,15 +52,19 @@ exports.register = async (req, res) => {
 exports.login = async (req, res) => {
   const { email, password } = req.body;
 
+  console.log('Login attempt:', email);
+
   if (!email || !password) {
     return res.status(400).json({ message: "Email and password are required" });
   }
 
   try {
     const user = await User.findOne({ email });
+    console.log('User found:', !!user, user ? user.email : null);
     if (!user) return res.status(401).json({ message: "Invalid credentials" });
 
     const isMatch = await bcrypt.compare(password, user.password);
+    console.log('Password match:', isMatch);
     if (!isMatch) return res.status(401).json({ message: "Invalid credentials" });
 
     const token = jwt.sign(
@@ -58,6 +74,7 @@ exports.login = async (req, res) => {
     );
 
     res.json({
+      success: true,
       token,
       user: {
         name: user.name,
